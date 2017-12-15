@@ -94,12 +94,12 @@
 <script src="d3.v3.js"></script>
 Order:
   <select id="order">
-  <option value="hclust">by field group</option>
-  <option value="probecontrast">by university name and field name</option>
-  <option value="probe">by university name</option>
-  <option value="contrast">by field name</option>
-  <option value="custom">by custom</option>
-      <option value="topten">by # top 10 rankings</option>
+  <!--<option value="hclust">by field group</option>
+  <option value="probecontrast">by university name and field name</option>-->
+  <option value="probe">...choose an option or click on the graph</option>
+  <option value="contrast" >by Research Area</option>
+  <!--<option value="custom">by custom</option>-->
+      <option value="topten" >by Count # of top 10 Rankings</option>
   </select>
   </select>
 <div id="chart" style='overflow:auto; width:1280px; height:960px;'></div>
@@ -149,7 +149,7 @@ function(d) {
 },
 function(error, data) {
   var colorScale = d3.scale.quantile()
-      .domain([ 0 ,12, 15])
+      .domain([ 0 ,10, 11])
       .range(colors);
 
   var svg = d3.select("#chart").append("svg")
@@ -212,7 +212,7 @@ function(error, data) {
         }
       return sorted_array
         };
-  var RankingTopFifteen = rankingOrder(data,15);
+  var RankingTopFifteen = rankingOrder(data,10);
 
   var rowLabels = svg.append("g")
       .selectAll(".rowLabelg")
@@ -227,7 +227,7 @@ function(error, data) {
       .attr("class", function (d,i) { return "rowLabel mono r"+i;} )
       .on("mouseover", function(d) {d3.select(this).classed("text-hover",true);})
       .on("mouseout" , function(d) {d3.select(this).classed("text-hover",false);})
-      .on("click", function(d,i) {rowSortOrder=!rowSortOrder; sortbylabel("r",i,rowSortOrder);
+      .on("click", function(d,i) {rowSortOrder=!rowSortOrder; sortbylabel("r",i,rowSortOrder,3000);
       d3.selectAll(".rowLabel").classed("row-click",false);
       d3.select(this).classed("row-click",true);
       d3.select("#order").property("selectedIndex", 4).node().focus();})
@@ -247,7 +247,7 @@ function(error, data) {
       .attr("class",  function (d,i) { return "colLabel mono c"+i;} )
       .on("mouseover", function(d) {d3.select(this).classed("text-hover",true);})
       .on("mouseout" , function(d) {d3.select(this).classed("text-hover",false);})
-      .on("click", function(d,i) {colSortOrder=!colSortOrder;  sortbylabel("c",i,colSortOrder);
+      .on("click", function(d,i) {colSortOrder=!colSortOrder;  sortbylabel("c",i,colSortOrder,3000);
       d3.selectAll(".colLabel").classed("col-click",false);
       d3.select(this).classed("col-click",true);
       d3.select("#order").property("selectedIndex", 4).node().focus();}
@@ -340,8 +340,9 @@ function(error, data) {
 
 // Change ordering of cells
 
-  function sortbylabel(rORc,i,sortOrder){
-       var t = svg.transition().duration(3000);
+  function sortbylabel(rORc,i,sortOrder,timevalue){
+
+       var t = svg.transition().duration(timevalue);
        var sort_array=[];
        var sorted; // sorted is zero-based index
        d3.selectAll(".c"+rORc+i)
@@ -374,14 +375,15 @@ function(error, data) {
   }
 
 
+  //sortbylabel("r",2,rowSortOrder,0);
 
   d3.select("#order").on("change",function(){
-    order(this.value);
+    order(this.value,3000);
   });
 
-  function order(value){
+  function order(value,timelength){
    if(value=="hclust"){
-    var t = svg.transition().duration(3000);
+    var t = svg.transition().duration(timelength);
     t.selectAll(".cell")
       .attr("x", function(d) { return hccol.indexOf(d.col) * cellSize; })
       //.attr("y", function(d) { return hcrow.indexOf(d.row) * cellSize; })
@@ -400,7 +402,7 @@ function(error, data) {
       ;
 
    }else if (value=="probecontrast"){
-    var t = svg.transition().duration(3000);
+    var t = svg.transition().duration(timelength);
     t.selectAll(".cell")
       .attr("x", function(d) { return (d.col - 1) * cellSize; })
       .attr("y", function(d) { return (d.row - 1) * cellSize; })
@@ -418,7 +420,7 @@ function(error, data) {
       ;
 
    }else if (value=="probe"){
-    var t = svg.transition().duration(3000);
+    var t = svg.transition().duration(timelength);
     t.selectAll(".cell")
       .attr("y", function(d) { return (d.row - 1) * cellSize; })
       ;
@@ -429,7 +431,7 @@ function(error, data) {
       .attr("y", function (d, i) { return i * cellSize; })
       ;
    }else if (value=="contrast"){
-    var t = svg.transition().duration(3000);
+    var t = svg.transition().duration(timelength);
     t.selectAll(".cell")
       .attr("x", function(d) { return (d.col - 1) * cellSize; })
       ;
@@ -440,7 +442,7 @@ function(error, data) {
       ;
    }
    else if (value=="topten"){
-    var t = svg.transition().duration(3000);
+    var t = svg.transition().duration(timelength);
     t.selectAll(".cell")
       .attr("y", function(d) { return (RankingTopFifteen.indexOf(d.row - 1)) * cellSize; })
       ;
@@ -549,6 +551,9 @@ function(error, data) {
          }
       })
       ;
+  //
+  sortbylabel("r",20,rowSortOrder,0)
+  //
 });
 });
 </script>
