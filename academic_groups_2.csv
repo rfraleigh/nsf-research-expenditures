@@ -1,0 +1,28 @@
+Name,Label,Group,Value
+Industry,Industry,Industry,0
+Aero/Astro-Engineering,Aero/Astro-Engineering,Engineering,1
+Bio-Engineering,Bio-Engineering,Engineering,1
+Chemical Engineering,Chemical Engineering,Engineering,1
+Civil Engineering,Civil Engineering,Engineering,1
+Eng - Electrical,Electrical Engineering,Engineering,1
+Eng- Industrial and Manufacturing Engineering ,Industrial and Manufacturing Engineering ,Engineering,1
+Eng - Materials,Materials Engineering,Engineering,1
+Eng - Mechanical,Mechanical Engineering,Engineering,1
+Chemistry,Chemistry,Physical Sciences,2
+Material Science,Material Science,Physical Sciences,2
+Physics,Physics,Physical Sciences,2
+Astronomy,Astronomy,Physical Sciences,2
+Atmospheric,Atmospheric,Environmental Sciences,3
+Geological and Earth Sciences,Geological and Earth Sciences,Environmental Sciences,3
+Ocean Sciences,Ocean Sciences,Environmental Sciences,3
+Mathematical,Mathematical,Mathematics,4
+Computer Science,Computer Science,Computer Science,5
+Agricultural,Agricultural,Life Science,6
+Biological,Biological,Life Science,6
+Health Sciences,Health Sciences,Life Science,6
+Natural resources,Natural resources,Life Science,6
+Psychology,Psychology,Psychology,7
+Anthropology,Anthropology,Social Sciences,8
+Economics,Economics,Social Sciences,8
+Political Science,Political Science,Social Sciences,8
+Sociology,Sociology,Social Sciences,8
