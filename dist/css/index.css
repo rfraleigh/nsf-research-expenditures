@@ -18,7 +18,7 @@
       }
 
       rect.cell-border {
-        /*stroke: #eee;*/
+            stroke: gray;
         stroke-width:0.3px;
       }
 
@@ -33,7 +33,7 @@
       }
 
       text.mono {
-        font-size: 10pt;
+        font-size: 11pt;
         font-family: Consolas, courier;
         fill: #aaa;
       }
@@ -48,16 +48,16 @@
       text.text-hover {
         fill: lightblue;
           font-weight:bold;
-          font-size:12pt;
+          font-size:14pt;
       }
       text.row-click {
           fill: lightblue;
         font-weight: 700;
-        font-size:12pt;
+        font-size:14pt;
       }
        text.col-click {
         font-weight: 700;
-           font-size:12pt;
+           font-size:14pt;
 
       }
       #tooltip {

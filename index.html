@@ -90,8 +90,8 @@
         hcrow =data['uni_ind'];
         hccol = data['field_ind'];
         colgroup = data['field_dict'];
-        var margin = { top: 175, right: 10, bottom: 50, left: 150 },
-      cellSize=20;
+        var margin = { top: 250, right: 10, bottom: 50, left: 200 },
+      cellSize=24;
       col_number=colLabel.length;
       row_number=rowLabel.length;
       width = cellSize*col_number; // - margin.left - margin.right,
@@ -266,7 +266,7 @@
             .attr("y", function(d) { return hcrow.indexOf(d.row) * cellSize+cellSize*(3/4); })
                  .attr("class", function(d){return "cell cell-contents cr"+(d.row-1)+" cc"+(d.col-1);})
 
-                 .style("font-size",function(d){if(d.ranking<=highlightlimit){return "9pt"}else if(d.ranking<99){return "8pt"} return "6pt";})
+                 .style("font-size",function(d){if(d.ranking<=highlightlimit){return "10pt"}else if(d.ranking<99){return "8pt"} return "7pt";})
             //.attr("dy", ".35em")
               .text(function(d){
                   if(d.ranking==999 ){return ""} return d.ranking})
@@ -343,7 +343,7 @@
           heatRect.style("fill", function(d) {return newcolorScale(d.value); });
 
           heatMap
-            .style("font-size",function(d){if(d.ranking<=newhighlightlimit){return "9pt"}else if(d.ranking<99){return "8pt"} return "6pt";})
+            .style("font-size",function(d){if(d.ranking<=newhighlightlimit){return "10pt"}else if(d.ranking<99){return "8pt"} return "7pt";})
             .text(function(d){
                   if(d.ranking==999 ){return ""} return d.ranking});
           d3.select("#order").property("selectedIndex", 2).node().focus();
