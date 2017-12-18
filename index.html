@@ -30,33 +30,38 @@
               2016 Ranking of NSF R&D Expenditures by Research Field
             </h2>
             <p style="text-align:left">
-              The chart is interactive.  Click on any column (research field) or row (university) text to rank the
+              The chart displays the top 25 universities ranked by aggregate research and development expenditures for the 2016 fiscal year.
+              Rankings are curated from the
+              <a href="https://www.nsf.gov/statistics/srvyherd" style="color:lightskyblue">2016 NSF Higher Education Research and Development Survey.</a>
+              <br><br>
+              The chart is interactive.  The chart highlights a user-defined research field ranking range. The default highlights the top 10 universities for each research field.<br>
+              <br>Click on the text label for any column (research field) or row (university) to rank the
               matrix based on your selection. You can regroup the entire matrix by selecting one of the options from
               the dropdown menu below.
             </p>
-            <p style="text-align:left">
-              Rankings are curated from the <a href="https://www.nsf.gov/statistics/srvyherd" style="color:lightskyblue">2016 NSF Higher Education Research and Development Survey.</a>
-            </p>
+            </div>
+            <div class=row"  style="text-align: left;">
+                    <p>Highlighted Field Ranking Range: (Ex: N=5 for Top 5)<br>
+                      <label for="nValue"
+                             style="display: inline-block;  text-align: left;">
+                             N = <span id="nValue-value"></span>
+                      </label>
+                      <input type="number" min="0" max="100" step="1" value="5" id="nValue">
+                    </p>
             </div>
             <div class="row">
-              <div class="col-md-6">
-              <select id="order">
-              <!--<option value="hclust">by field group</option>
-              <option value="probecontrast">by university name and field name</option>-->
-                <option value="custom" disabled selected>Select a regrouping</option>
-                <option value="contrast" >by Research Area</option>
-                <!--<option value="custom">by custom</option>-->
-                  <option value="topten" >by Count # of top 10 Rankings</option>
-              </select>
+              <select id="order" >
+                    <!--<option value="hclust">by field group</option>
+                    <option value="probecontrast">by university name and field name</option>-->
+                      <option value="custom" disabled selected>Select a Regrouping</option>
+                      <option value="contrast" >by Research Area</option>
+                      <!--<option value="custom">by custom</option>-->
+                        <option value="topten" >by Count # of top N Rankings</option>
+               </select>
             </div>
-              <div class="col-md-6">
 
-              </div>
-            </div>
-            <div class="row">
-
-            </div>
           </div>
+
 
           <div class="col-md-8">
 
@@ -121,8 +126,7 @@
     },
     function(error, data) {
 
-      var highlightlimit =5;
-
+      var highlightlimit=10;
       var colorScale = d3.scale.linear()
           .domain([ 0,highlightlimit,highlightlimit+1,1000])
           .range([d3.rgb("lightskyblue"), d3.rgb('lightskyblue'),d3.rgb('white'),d3.rgb('white')]);
@@ -180,7 +184,6 @@
               return (a[2]-b[2]);
              }
              });
-
             // Create a new array with only the first 5 items
             //console.log(items.slice(0, 25));
             var sorted_array = []
@@ -189,7 +192,12 @@
             }
           return sorted_array
             };
-      var RankingTopFifteen = rankingOrder(data,10);
+
+
+       var RankingTopFifteen = rankingOrder(data,highlightlimit);
+       // when the input range changes update value
+
+
 
       var rowLabels = svg.append("g")
           .selectAll(".rowLabelg")
@@ -236,11 +244,14 @@
       var heatMap = svg.append("g").attr("class","g3")
             .selectAll(".cellg")
           .data(data,function(d){return d.row+":"+d.col;});
+      var heatMapUpdate = heatMap;
 
 
             //.data(data,function(d){return d.row+":"+d.col;})
-            heatMap.enter()
+            var heatRect = heatMap.enter()
             .append("rect")
+
+                heatRect
             .attr("x", function(d) { return hccol.indexOf(d.col) * cellSize; })
             .attr("y", function(d) { return hcrow.indexOf(d.row) * cellSize; })
             .attr("class", function(d){return "cell cell-border cr"+(d.row-1)+" cc"+(d.col-1);})
@@ -255,10 +266,10 @@
             .attr("y", function(d) { return hcrow.indexOf(d.row) * cellSize+cellSize*(3/4); })
                  .attr("class", function(d){return "cell cell-contents cr"+(d.row-1)+" cc"+(d.col-1);})
 
-                 .style("font-size",function(d){if(d.ranking>10){return "7pt"} return "10pt";})
+                 .style("font-size",function(d){if(d.ranking<=highlightlimit){return "9pt"}else if(d.ranking<99){return "8pt"} return "6pt";})
             //.attr("dy", ".35em")
               .text(function(d){
-                  if(d.ranking==999 | d.ranking>99){return ""} return d.ranking})
+                  if(d.ranking==999 ){return ""} return d.ranking})
             /* .on("click", function(d) {
                    var rowtext=d3.select(".r"+(d.row-1));
                    if(rowtext.classed("text-selected")==false){
@@ -295,7 +306,7 @@
             })
             ;
 
-      var legend = svg.selectAll(".legend")
+      /*var legend = svg.selectAll(".legend")
           .data([-10,-9,-8,-7,-6,-5,-4,-3,-2,-1,0,1,2,3,4,5,6,7,8,9,10])
           .enter().append("g")
           .attr("class", "legend");
@@ -314,6 +325,34 @@
         .attr("width", legendElementWidth)
         .attr("x", function(d, i) { return legendElementWidth * i; })
         .attr("y", height + (cellSize*2));
+
+*/
+
+      d3.select("#nValue").on("input", function() {
+        update(+this.value);
+      });
+
+      function update(nvalue){
+          var newhighlightlimit = nvalue;
+          var newRanking =rankingOrder(data,newhighlightlimit)
+
+          var newcolorScale = d3.scale.linear()
+          .domain([ 0,newhighlightlimit,newhighlightlimit+1,1000])
+          .range([d3.rgb("lightskyblue"), d3.rgb('lightskyblue'),d3.rgb('white'),d3.rgb('white')]);
+
+          heatRect.style("fill", function(d) {return newcolorScale(d.value); });
+
+          heatMap
+            .style("font-size",function(d){if(d.ranking<=newhighlightlimit){return "9pt"}else if(d.ranking<99){return "8pt"} return "6pt";})
+            .text(function(d){
+                  if(d.ranking==999 ){return ""} return d.ranking});
+          d3.select("#order").property("selectedIndex", 2).node().focus();
+
+          order('topten',500,newRanking);
+
+          //sortbylabel("r",20,rowSortOrder,0)
+
+      }
 
       //SLIDER LEGEND
         /*
@@ -397,10 +436,10 @@
       //sortbylabel("r",2,rowSortOrder,0);
 
       d3.select("#order").on("change",function(){
-        order(this.value,1500);
+        order(this.value,1500,RankingTopFifteen);
       });
 
-      function order(value,timelength){
+      function order(value,timelength,RankingTopFifteen){
        if(value=="hclust"){
         var t = svg.transition().duration(timelength);
         t.selectAll(".cell")
@@ -571,7 +610,7 @@
           })
           ;
       //
-      sortbylabel("r",20,rowSortOrder,0)
+      //sortbylabel("r",20,rowSortOrder,0)
       //
     });
     });
