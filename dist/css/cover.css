@@ -159,3 +159,14 @@ body {
     width: 42rem;
   }
 }
+/* Default text size for labels */
+.rowLabel, .colLabel {
+  font-size: 11pt;
+}
+
+/* Adjust text size for mobile screens */
+@media (max-width: 768px) {
+  .rowLabel, .colLabel {
+      font-size: 8pt; /* Reduce font size on small screens */
+  }
+}
