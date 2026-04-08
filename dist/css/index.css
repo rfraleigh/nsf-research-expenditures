@@ -120,3 +120,5 @@
       top: -7px;
       left: -7px;
     }
+
+    svg text[tabindex]:focus { outline: none; }
