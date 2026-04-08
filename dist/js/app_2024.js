@@ -97,7 +97,7 @@ function abbrevCol(name) {
   return ABBREV_COL[name] || name;
 }
 
-d3.json("data_2024.json", function(error, payload) {
+d3.json("dist/data/data_2024.json", function(error, payload) {
   if (error) { console.error("Failed to load data_2024.json:", error); return; }
 
   var headers = payload.headers;
