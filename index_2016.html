@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="Explore university research funding trends through interactive NSF data visualizations.">
+    <meta name="author" content="Robbie Fraleigh">
+    <title>NSF Research Expenditures | 2016 Rankings</title>
+
+    <!-- Bootstrap core CSS -->
+    <link href="dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Custom styles -->
+    <link href="dist/css/cover.css" rel="stylesheet">
+    <link href="dist/css/index.css" rel="stylesheet">
+
+    <!-- JavaScript -->
+    <script src="dist/js/d3.v3.js"></script>
+
+    <style>
+        /* Flexbox container for layout */
+        /* Flex container for layout */
+        .flex-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center; /* Centers both elements */
+            align-items: center; /* Aligns them vertically */
+            padding: 20px;
+            gap: 20px; /* Adds spacing between sidebar and chart */
+        }
+
+        /* Sidebar (Text & Inputs) */
+        .sidebar {
+            flex: 1;
+            max-width: 450px;
+            text-align: left;
+        }
+
+        /* Chart section */
+        .chart-container {
+            flex: 2;
+            max-width: 900px;
+            display: flex;
+            justify-content: center; /* Centers chart horizontally */
+            align-items: center; /* Centers chart vertically */
+            width: 100%;
+        }
+
+        /* Ensure SVG inside chart-container is responsive */
+        .chart-container svg {
+            max-width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        /* Responsive styles for mobile */
+        @media (max-width: 768px) {
+            .flex-container {
+                flex-direction: column;
+                text-align: center;
+                align-items: center;
+            }
+
+            .sidebar {
+                width: 100%;
+                max-width: 100%;
+                text-align: center;
+                padding: 0;
+            }
+
+            .chart-container {
+                width: 100%;
+                justify-content: center;
+                align-items: center;
+            }
+
+            input, select {
+                width: 100%;
+                max-width: 300px;
+            }
+        }
+
+        .left-aligned {
+            text-align: left; 
+            padding-left: 20px;  
+            list-style-position: outside;
+            margin-left: 0;
+        }
+
+        .input-container {
+            display: flex;
+            flex-direction: column; /* Stack elements vertically */
+            gap: 10px;
+            align-items: center; /* Center input fields */
+        }
+
+        .input-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        label {
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        input[type="number"], select {
+            height: 36px;
+            font-size: 16px;
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+    </style>
+</head>
+
+<body>
+    <section>
+        <div class="flex-container">
+            <!-- Sidebar (Centered on Mobile) -->
+            <div class="sidebar">
+                <h3>2016 NSF R&D Expenditures by Research Field</h3>
+                <p>
+                    Explore <strong>how universities rank in research and development (R&D) spending</strong> across disciplines. 
+                    This interactive chart visualizes <strong>the top 25 universities</strong> by total <strong>R&D expenditures for the 2016 fiscal year</strong>, based on data from the 
+                    <a href="https://www.nsf.gov/statistics/srvyherd" style="color:lightskyblue">NSF Higher Education Research and Development Survey</a>.
+                </p>
+
+                <ul class="left-aligned">
+                    <li>Compare <strong>funding trends</strong> across research fields.</li>
+                    <li>By default, the <strong>top 10 universities</strong> in each category are highlighted.</li>
+                    <li>Click a <strong>column header (research field)</strong> or <strong>row (university)</strong> to re-rank the data.</li>
+                    <li>Use the dropdown below to adjust the ranking range (e.g., <strong>Top 5, Top 15</strong>).</li>
+                </ul>
+                
+                <p><strong>Highlighted Field Ranking Range:</strong> (Ex: N=5 for Top 5)</p>
+                <div class="input-container">
+                    
+                    <div class="input-group">
+                        <label for="nValue">N = <span id="nValue-value"></span></label>
+                        <input type="number" min="0" max="100" step="1" value="5" id="nValue">
+                    </div>
+                
+                    <div class="input-group">
+                        <select id="order">
+                            <option value="custom" disabled selected>Select a Regrouping</option>
+                            <option value="contrast">By Research Area</option>
+                            <option value="topten">By Count of Top N Rankings</option>
+                        </select>
+                    </div>
+                </div>
+                
+            </div>
+
+            <!-- Chart Section (Centered) -->
+            <div class="chart-container">
+                <div id="tooltip" class="hidden"><p><span id="value"></span></p></div>
+                <div id="chart"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="mastfoot">
+        <div class="container-fluid text-left p-3">
+            <p>Visualization by <a href="">Robbie Fraleigh</a>, by <a href="https://github.com/rfraleigh">@rfraleigh</a>.</p>
+        </div>
+    </footer>
+
+    <!-- Bootstrap & jQuery -->
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" 
+            integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" 
+            crossorigin="anonymous">
+    </script>
+    <script src="dist/js/vendor/popper.min.js"></script>
+    <script src="dist/js/bootstrap.min.js"></script>
+    <script src="dist/js/app.js"></script>
+
+</body>
+</html>
