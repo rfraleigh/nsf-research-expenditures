@@ -1,0 +1,33 @@
+Name,Label,Group,Value
+Aerospace aeronautical and astronautical/space engineering,Aerospace/Astro Engineering,Engineering,1
+Bioengineering and biomedical engineering,Bioengineering,Engineering,1
+Chemical engineering,Chemical Engineering,Engineering,1
+Civil engineering,Civil Engineering,Engineering,1
+Electrical electronic and communications engineering,Electrical Engineering,Engineering,1
+Industrial and manufacturing engineering,Industrial & Manufacturing Eng,Engineering,1
+Materials science and engineering,Materials Engineering,Engineering,1
+Mechanical engineering,Mechanical Engineering,Engineering,1
+Other engineering,Other Engineering,Engineering,1
+Chemistry,Chemistry,Physical Sciences,2
+Materials science (physical),Materials Science,Physical Sciences,2
+Physics,Physics,Physical Sciences,2
+Astronomy and astrophysics,Astronomy & Astrophysics,Physical Sciences,2
+Other physical sciences,Other Physical Sciences,Physical Sciences,2
+Atmospheric sciences and meteorology,Atmospheric Sciences,Environmental Sciences,3
+Geological and earth sciences/geosciences,Geological & Earth Sciences,Environmental Sciences,3
+Oceanography and marine sciences,Oceanography,Environmental Sciences,3
+Other geosciences atmospheric and ocean sciences,Other Geosciences,Environmental Sciences,3
+Mathematics and statistics,Mathematics & Statistics,Mathematics,4
+Computer and information sciences,Computer & Information Sciences,Computer Science,5
+Agricultural sciences and natural resources and conservation,Agricultural Sciences,Life Science,6
+Biological and biomedical sciences,Biological & Biomedical Sciences,Life Science,6
+Health sciences,Health Sciences,Life Science,6
+Other life sciences,Other Life Sciences,Life Science,6
+Psychology,Psychology,Psychology,7
+Anthropology and archaeology,Anthropology & Archaeology,Social Sciences,8
+Economics,Economics,Social Sciences,8
+Political science and government,Political Science & Govt,Social Sciences,8
+Sociology demography and population studies,Sociology & Demography,Social Sciences,8
+Other social sciences,Other Social Sciences,Social Sciences,8
+Other sciences and engineering,Other Sciences & Engineering,Other Sciences,9
+Non-science and engineering,Non-S&E,Non-S&E,10
