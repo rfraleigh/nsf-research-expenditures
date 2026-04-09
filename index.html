@@ -3,9 +3,9 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <meta name="description" content="Interactive visualization of FY2024 NSF R&D expenditure rankings for the top 50 U.S. research universities across 33 research fields.">
+    <meta name="description" content="Interactive visualization of NSF R&D expenditure rankings for the top 50 U.S. research universities across 33 research fields, FY2012–FY2024.">
     <meta name="author" content="Robbie Fraleigh">
-    <title>NSF R&D Expenditures | FY2024</title>
+    <title>NSF R&D Expenditures | FY2012–2024</title>
 
     <link href="dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="dist/css/cover.css" rel="stylesheet">
@@ -38,7 +38,7 @@
         height: 100vh;
       }
 
-      /* ── Topbar: two-column layout (controls moved to chart) ── */
+      /* ── Topbar ── */
       .topbar {
         flex: 0 0 auto;
         display: grid;
@@ -64,7 +64,7 @@
         text-overflow: ellipsis;
       }
 
-      /* Controls sit inside SVG foreignObject — styled for dark chart bg */
+      /* Controls overlay — positioned above row labels in the chart panel */
       #chart-controls {
         display: flex;
         flex-direction: column;
@@ -96,23 +96,20 @@
         border: 1px solid #333; border-radius: 3px;
         background: #1a1a2e; color: #ddd;
       }
-      #order {
+      #order, #yearSelect {
         height: 22px; font-size: 10px; padding: 1px 3px;
         border: 1px solid #333; border-radius: 3px;
         background: #1a1a2e; color: #ddd;
         max-width: 124px;
       }
-      #nValue:focus, #order:focus {
+      #nValue:focus, #order:focus, #yearSelect:focus {
         outline: 2px solid #4a90d9;
         outline-offset: 1px;
       }
 
-      /* Suppress browser native outline on SVG interactive elements —
-         our JS focus-ring rect handles keyboard focus indication. */
+      /* Suppress browser native outline on SVG interactive elements */
       svg text[tabindex]:focus        { outline: none; }
       svg text[tabindex]:focus-visible { outline: none; }
-
-
 
       .topbar-note {
         font-size: 10px;
@@ -141,7 +138,6 @@
         padding: 32px 28px 20px 24px;
         display: flex;
         flex-direction: column;
-        /* justify-content: center; */
         text-align: left;
         gap: 14px;
         border-right: 1px solid #2a2a44;
@@ -186,8 +182,6 @@
         position: relative;
       }
 
-      /* FIX 2.4.7: focus ring on SVG interactive elements is handled in JS */
-      /* But also style the row-click / col-click state with text decoration */
       .sr-only {
         position: absolute; width: 1px; height: 1px;
         padding: 0; margin: -1px; overflow: hidden;
@@ -196,8 +190,8 @@
 
       #tooltip {
         position: fixed;
-        top: 64px; right: 16px;
-        width: 210px;
+        top: 170px; right: 20px;
+        width: 120px;
         background: #fff;
         border-radius: 8px;
         padding: 9px 12px;
@@ -232,18 +226,17 @@
 
   <div class="topbar" role="banner">
 
-    <!-- Left: title -->
+    <!-- Left: title (updated dynamically by JS when year changes) -->
     <div class="topbar-title">
-      <h2>FY2024 NSF R&amp;D Expenditures by Research Field</h2>
+      <h2>NSF R&amp;D Expenditures by Research Field</h2>
     </div>
-
 
     <!-- Right: citation + legend note -->
     <div class="topbar-note">
-      <abbr title="NSF/NCSES Higher Education R&amp;D Survey data tables, FY2024">
-        Data: <a href="https://ncses.nsf.gov/explore-data/microdata/higher-education-research-development" target="_blank">HERD 2024</a>
+      <abbr title="NSF/NCSES Higher Education R&amp;D Survey microdata, FY2012–2024">
+        Data: <a href="https://ncses.nsf.gov/explore-data/microdata/higher-education-research-development" target="_blank">HERD 2012–2024</a>
       </abbr>
-      &nbsp;·&nbsp; standard-form institutions &nbsp;·&nbsp; ranks within field &nbsp;·&nbsp;
+      &nbsp;·&nbsp; top 50 by latest year &nbsp;·&nbsp; ranks within field &nbsp;·&nbsp;
       <span style="color:#4a90d9">■</span> = top&nbsp;N
     </div>
 
@@ -256,7 +249,9 @@
       <h4><em>What does it mean to be a research university?</em></h4>
 
       <p class="lead">Every year, the NSF asks: where did the money go? Who spent what, and where?</p>
-      <p>Displayed here are the 50 most funded institutions in FY2024, ranked within 33 subfields. Each cell is that university's national rank in that discipline. Blue means top&nbsp;N. <em>Click any university name or field header to re-sort.</em></p>
+      <p>Displayed here are the 50 institutions with the most R&amp;D expenditures in the latest year, ranked within 33 subfields. Each cell is that university's national rank in that discipline. Blue means top&nbsp;N. <em>Click any university name or field header to re-sort.</em></p>
+
+      <p>Use the <strong class="mode-label">Year</strong> dropdown in the chart controls to step through FY2012 to FY2024. The same 50 institutions are shown across all years — cells go blank for fields not tracked in a given year, or for institutions that weren't yet in the top tier.</p>
 
       <p>The distribution is the story. Some universities concentrate almost everything in one or two fields and barely register elsewhere. Others appear across every column without leading any of them. A few anchor a whole family of related disciplines and fade outside it. These aren't random patterns. They're the accumulated result of decades of hiring, funding, and institutional identity.</p>
 
@@ -271,15 +266,25 @@
       <!-- Controls overlay: positioned in top-left, above row labels -->
       <div id="chart-controls" role="group" aria-label="Chart controls"
            style="position:absolute; top:10px; left:20px; z-index:10;">
-        <label for="nValue" style="text-align:left;font-size:12px">Top N per field</label>
+        
         <div class="ctrl-row">
-          <span style="font-size:16px">N =</span>
+          <label for="yearSelect" style="color:#9cb;font-weight:600;text-align:left;font-size:13px;">Year</label>
+          <select id="yearSelect" aria-label="Select fiscal year">
+            <!-- populated by app_all_years.js from data headers -->
+          </select>
+        </div>
+
+        <div class="ctrl-row">
+          <label for="nValue" style="text-align:left;font-size:12px">Top N per field</label>
+          <!-- <span style="font-size:16px">N =</span> -->
           <input type="number" id="nValue" min="1" max="50" step="1" value="10"
                  aria-describedby="nValue-hint">
           <span id="nValue-hint" class="sr-only">Number between 1 and 50</span>
         </div>
-        <label for="nValue" style="color: #9cb; font-weight: 600; text-align:left;font-size: 13px;">Arrange by</label>
 
+        
+
+        <!-- <label for="order" style="color:#9cb;font-weight:600;text-align:left;font-size:13px;">Arrange by</label> -->
         <select id="order" aria-label="Regroup rows and columns">
           <option value="custom" disabled selected>Arrange…</option>
           <option value="contrast">By Research Field</option>
@@ -293,7 +298,7 @@
         <div id="tip-field"></div>
         <div id="tip-rank"></div>
       </div>
-      <!-- WCAG 1.1.1: aria-label and role="img" added programmatically in app.js -->
+      <!-- WCAG 1.1.1: aria-label and role="img" added programmatically in app_all_years.js -->
       <div id="chart"></div>
     </div>
 
@@ -308,7 +313,7 @@
 <script src="dist/js/vendor/jquery-slim.min.js"></script>
 <script src="dist/js/vendor/popper.min.js"></script>
 <script src="dist/js/bootstrap.min.js"></script>
-<script src="dist/js/app_2024.js"></script>
+<script src="dist/js/app_all_years.js"></script>
 
 </body>
 </html>
