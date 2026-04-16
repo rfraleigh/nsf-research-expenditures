@@ -111,6 +111,13 @@
       svg text[tabindex]:focus        { outline: none; }
       svg text[tabindex]:focus-visible { outline: none; }
 
+      /* Prevent native text-selection context menu on cell number labels */
+      .cell-contents {
+        user-select: none;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+      }
+
       .topbar-note {
         font-size: 10px;
         color: #555;
@@ -215,6 +222,7 @@
         overflow: hidden;
       }
       footer a { color: #666; text-decoration: none; }
+
     </style>
 </head>
 <body>
@@ -291,6 +299,7 @@
           <option value="topten">By Count of Top-N</option>
           <option value="cosort">By Co-occurrence</option>
         </select>
+
       </div>
 
       <div id="tooltip" class="hidden" role="tooltip">
@@ -309,6 +318,8 @@
   </footer>
 
 </div>
+
+
 
 <script src="dist/js/vendor/jquery-slim.min.js"></script>
 <script src="dist/js/vendor/popper.min.js"></script>

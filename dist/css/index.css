@@ -32,6 +32,12 @@
         stroke-width:0.3px;
       }
 
+      rect.cell-focus {
+        stroke: #fff;
+        stroke-width: 2px;
+        filter: drop-shadow(0 0 3px rgba(255,255,255,0.6));
+      }
+
       text.mono {
         font-size: 11pt;
         font-family: Consolas, courier;
@@ -44,6 +50,11 @@
 
       text.text-highlight {
         fill: red;
+      }
+      text.colLabel.text-highlight {
+        fill: red !important;
+        font-weight: 700;
+        font-size: 12pt;
       }
       text.text-hover {
         fill: lightblue;

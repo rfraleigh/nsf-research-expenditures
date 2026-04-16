@@ -665,8 +665,11 @@ d3.json("dist/data/data_all_years_750.json", function(error, payload) {
     .style("fill", function(d){ return colorScale(d.value); })
     .style("stroke", function(d){ return d.value <= highlightlimit ? HIGHLIGHT_DARK : "gray"; })
     .style("stroke-width", function(d){ return d.value <= highlightlimit ? "1.2px" : "0.3px"; })
-    .style("opacity", 0.9);
-
+    .style("opacity", 0.9)
+    .on("click", function(d) {
+      if (d.value === 999) return;
+      focusNeighborhood(d.row, d.col, d.value);
+    })
   var heatText = heatMap.enter().append("text")
     .attr("x", function(d){ return hccol.indexOf(d.col)*cellSize + cellSize*0.5; })
     .attr("y", function(d){ return hcrow.indexOf(d.row)*cellSize + cellSize*0.72; })
@@ -696,8 +699,11 @@ d3.json("dist/data/data_all_years_750.json", function(error, payload) {
       d3.selectAll(".rowLabel").classed("text-highlight", false);
       d3.selectAll(".colLabel").classed("text-highlight", false);
       d3.select("#tooltip").classed("hidden", true);
-    });
-
+    })
+    .on("click", function(d) {
+      if (d.value === 999) return;
+      focusNeighborhood(d.row, d.col, d.value);
+    })
   // ── N input ────────────────────────────────────────────────────────────────
   d3.select("#nValue").on("input", function(){ updateN(+this.value); });
 
@@ -784,6 +790,135 @@ d3.json("dist/data/data_all_years_750.json", function(error, payload) {
       coSort(nv);
     }
     // "contrast" and "custom" (label-click) orderings are index-based — no update needed
+  }
+
+  // ── Cell-click neighborhood focus ─────────────────────────────────────────
+  // Click any cell → swap ±5 rows to show institutions ranked nearby in that
+  // field, then globally re-sort all columns by average rank across those
+  // neighborhood institutions (like clicking a row label, but weighted by
+  // the neighborhood).  The clicked column stays pinned at its current
+  // visual position (clamped ±5 from edges).  The clicked cell is highlighted.
+  var NEIGHBORHOOD_SIZE = 5;
+
+  function focusNeighborhood(displaySlot, displayCol, clickedRank) {
+    currentOrderMode = "custom";
+    var clickedInstRow = currentSlotToRow[displaySlot - 1];  // actual 1-based row
+
+    // 1. Gather all institutions' ranks in this field from the full corpus
+    var colEntries = [];
+    for (var ri = 1; ri <= FULL_ROWS; ri++) {
+      var fd = fullDataByInst[ri] ? fullDataByInst[ri][displayCol] : null;
+      var v  = fd ? fd.value : 999;
+      colEntries.push({ row: ri, value: v });
+    }
+    colEntries.sort(function(a, b) {
+      if (a.value === 999 && b.value === 999) return 0;
+      if (a.value === 999) return 1;
+      if (b.value === 999) return -1;
+      return a.value - b.value;
+    });
+
+    // 2. Find where the clicked institution sits in this sorted list
+    var clickedPos = -1;
+    for (var i = 0; i < colEntries.length; i++) {
+      if (colEntries[i].row === clickedInstRow) { clickedPos = i; break; }
+    }
+    if (clickedPos < 0) return;
+
+    // 3. Gather the ±NEIGHBORHOOD_SIZE institutions around the clicked one
+    var aboveStart = Math.max(0, clickedPos - NEIGHBORHOOD_SIZE);
+    var belowEnd   = Math.min(colEntries.length, clickedPos + NEIGHBORHOOD_SIZE + 1);
+    var aboveInsts = colEntries.slice(aboveStart, clickedPos);
+    var belowInsts = colEntries.slice(clickedPos + 1, belowEnd);
+
+    // 4. Build new slot-to-row mapping with neighborhood swapped in
+    var newSlotToRow = currentSlotToRow.slice();
+    var usedRows = {};
+    usedRows[clickedInstRow] = true;
+
+    // Fill above
+    var aboveSlotStart = displaySlot - 1 - aboveInsts.length;
+    if (aboveSlotStart < 0) aboveSlotStart = 0;
+    for (var ai = 0; ai < aboveInsts.length; ai++) {
+      var slotIdx = aboveSlotStart + ai;
+      if (slotIdx >= displaySlot - 1) break;
+      newSlotToRow[slotIdx] = aboveInsts[ai].row;
+      usedRows[aboveInsts[ai].row] = true;
+    }
+
+    // Fill below
+    for (var bi = 0; bi < belowInsts.length; bi++) {
+      var slotIdx = displaySlot + bi;
+      if (slotIdx >= DISPLAY_ROWS) break;
+      newSlotToRow[slotIdx] = belowInsts[bi].row;
+      usedRows[belowInsts[bi].row] = true;
+    }
+
+    // Backfill: if a neighborhood institution was already in a non-neighborhood
+    // slot, restore that slot to its original occupant
+    var originalSlotToRow = currentSlotToRow.slice();
+    for (var si = 0; si < DISPLAY_ROWS; si++) {
+      var isNeighSlot = (si >= aboveSlotStart && si < aboveSlotStart + aboveInsts.length) ||
+                        (si === displaySlot - 1) ||
+                        (si >= displaySlot && si < displaySlot + belowInsts.length);
+      if (!isNeighSlot && usedRows[newSlotToRow[si]]) {
+        newSlotToRow[si] = originalSlotToRow[si];
+      }
+    }
+
+    // 5. Read clicked column's current visual position BEFORE any changes
+    var clickedColIdx = displayCol - 1;
+    var origColPos = -1;
+    svg.selectAll(".cell-border").each(function(d) {
+      if (d.col - 1 === clickedColIdx && d.row === 1) {
+        origColPos = Math.round(this.x.baseVal.value / cellSize);
+      }
+    });
+    if (origColPos < 0) origColPos = clickedColIdx;
+
+    // 6. Apply row swap instantly (data + labels update, no animation)
+    swapDisplayRows(newSlotToRow, 0);
+
+    // 7. Sort columns by the clicked row's values (same as sortbylabel "r")
+    //    then cyclically shift so the clicked column stays at its original position.
+    var rowIdx = displaySlot - 1;
+    var arr = [];
+    d3.selectAll(".cr" + rowIdx).filter(function(ce) { arr.push(ce.value); });
+    var s = d3.range(col_number).sort(function(a, b) { return arr[a] - arr[b]; });
+    // s[position] = colIdx
+
+    // Cyclic shift: rotate s so that clickedColIdx lands at origColPos
+    var sortedPos = s.indexOf(clickedColIdx);
+    var shift = origColPos - sortedPos;
+    var shifted = [];
+    for (var p = 0; p < col_number; p++) {
+      shifted.push(s[((p - shift) % col_number + col_number) % col_number]);
+    }
+    // shifted[position] = colIdx  →  shifted.indexOf(colIdx) = visual position
+
+    // 8. Animate using the SAME pattern as sortbylabel (proven to work)
+    var t = svg.transition().duration(800);
+    t.selectAll(".cell")
+      .attr("x", function(d) { return shifted.indexOf(d.col - 1) * cellSize; });
+    t.selectAll(".cell-contents")
+      .attr("x", function(d) { return shifted.indexOf(d.col - 1) * cellSize + cellSize * 0.5; });
+    t.selectAll(".colLabel")
+      .attr("x", function(d, ci) { return shifted.indexOf(ci) * cellSize + cellSize / 2; })
+      .attr("transform", function(d, ci) { return colTransform(ci, shifted.indexOf(ci)); });
+
+    // 9. Highlight the clicked cell with inline stroke (survives swapDisplayRows)
+    var nv = +document.getElementById("nValue").value;
+    svg.selectAll(".cell-border")
+      .style("stroke", function(d) { return d.value <= nv ? HIGHLIGHT_DARK : "gray"; })
+      .style("stroke-width", function(d) { return d.value <= nv ? "1.2px" : "0.3px"; });
+    svg.selectAll(".cell-border").filter(function(d) {
+      return d.row === displaySlot && d.col === displayCol;
+    })
+      .style("fill", "#e57373")
+      .style("stroke", "#b71c1c")
+      .style("stroke-width", "2.5px");
+
+    d3.select("#order").property("selectedIndex", 0);
   }
 
   // ── Sort by label ──────────────────────────────────────────────────────────
@@ -978,6 +1113,8 @@ d3.json("dist/data/data_all_years_750.json", function(error, payload) {
       return blockDensity(b) - blockDensity(a);  // descending: dense blocks first
     });
 
+
+
     var flattenedOrder = [];
     blocks.forEach(function(block) {
       block.forEach(function(r) { flattenedOrder.push(r); });
@@ -1006,16 +1143,31 @@ d3.json("dist/data/data_all_years_750.json", function(error, payload) {
       .attr("transform", function(d,i){ return colTransform(i, colOrder.indexOf(i)); });
   }
 
+  // ── (Cohort evolution visualization removed — now in graph.html) ──────────
+
+
+
+
   // ── Order dropdown ─────────────────────────────────────────────────────────
   d3.select("#order").on("change", function(){
+    var prevMode = currentOrderMode;
     currentOrderMode = this.value;
-    order(this.value, 1200, RankingTopN);
+    order(this.value, 1200, RankingTopN, prevMode);
   });
 
-  function order(value, ms, topN) {
-    // All dropdown-triggered sorts operate on the default top-DISPLAY_ROWS institution
-    // set.  resetToDefaultRows() is a no-op when the set is already the default.
-    resetToDefaultRows();
+  function order(value, ms, topN, prevMode) {
+    // Clear cell-focus highlight from any previous cell-click
+    var curN = +document.getElementById("nValue").value;
+    var curCS = makeColorScale(curN);
+    svg.selectAll(".cell-border")
+      .style("fill", function(d) { return curCS(d.value); })
+      .style("stroke", function(d) { return d.value <= curN ? HIGHLIGHT_DARK : "gray"; })
+      .style("stroke-width", function(d) { return d.value <= curN ? "1.2px" : "0.3px"; });
+
+    // After a cell-click ("custom"), preserve neighborhood rows only for
+    // "contrast" (pure column reorder).  Co-occurrence and top-N recompute
+    // layout from row data, so they need the canonical institution set.
+    if (!(prevMode === "custom" && value === "contrast")) resetToDefaultRows();
     if (value==="cosort") { coSort(+document.getElementById("nValue").value); return; }
     var t = svg.transition().duration(ms);
     if (value==="contrast") {
