@@ -409,14 +409,15 @@ d3.json("dist/data/data_all_years_750.json", function(error, payload) {
              : (isMobile ? window.innerWidth : window.innerWidth * 0.67);
   var vh = window.innerHeight;
 
-  var TOPBAR_H  = 44;
-  var FOOTER_H  = 22;
-  var LEFT_MAR  = isMobile ? 80  : 180;  // extra room for sparkline + gap + label
-  var TOP_MAR   = isMobile ? 90  : 120;
-  var RIGHT_MAR = isMobile ? 8   : 115;
-  var BOT_MAR   = 6;
+  var TOPBAR_H      = 44;
+  var CTRL_STRIP_H  = 44;           // horizontal control strip below topbar
+  var FOOTER_H      = 22;
+  var LEFT_MAR      = isMobile ? 80  : 180;  // extra room for sparkline + gap + label
+  var TOP_MAR       = isMobile ? 90  : 120;
+  var RIGHT_MAR     = isMobile ? 8   : 115;
+  var BOT_MAR       = 6;
 
-  var availH = vh - TOPBAR_H - FOOTER_H - TOP_MAR - BOT_MAR;
+  var availH = vh - TOPBAR_H - CTRL_STRIP_H - FOOTER_H - TOP_MAR - BOT_MAR;
   var availW = panelW - LEFT_MAR - RIGHT_MAR;
 
   var cellH = Math.floor(availH / row_number);
@@ -525,6 +526,78 @@ d3.json("dist/data/data_all_years_750.json", function(error, payload) {
     }
   }
 
+  // ── Source-aware rank recomputation ─────────────────────────────────────
+  //
+  // currentSource is a global data filter. When it changes (or year changes),
+  // per-field ranks need to be recomputed. Every downstream consumer (coSort,
+  // top-N sort, colors, tooltip) reads d.value — update that, and they all
+  // cascade correctly.
+  //
+  // rankCacheBySource: { yearKey: { instRow: { colIdx: rank } } }
+  //   Populated for ALL years on source change, so the tooltip's year-by-year
+  //   rank column stays consistent with the active source filter.
+  var rankCacheBySource = null;
+
+  // Compute per-field ranks for a given year and source, based on $ amounts.
+  // Returns { instRow: { colIdx: rankInt } } (only ranks institutions with > 0 $).
+  function computeRanksForYearSource(yr, source) {
+    var out = {};
+    for (var ci = 1; ci <= col_number; ci++) {
+      var pairs = [];
+      for (var ri = 1; ri <= FULL_ROWS; ri++) {
+        var fd = fullDataByInst[ri] && fullDataByInst[ri][ci];
+        if (!fd || !fd._src) continue;
+        var amt = getCellDollars({ _src: fd._src }, yr, source);
+        if (amt > 0) pairs.push({ row: ri, amt: amt });
+      }
+      pairs.sort(function(a, b) { return b.amt - a.amt; });
+      pairs.forEach(function(p, idx) {
+        if (!out[p.row]) out[p.row] = {};
+        out[p.row][ci] = idx + 1;
+      });
+    }
+    return out;
+  }
+
+  // Recompute ranks for currentYear + currentSource, update fullData[i].value,
+  // re-sync display slots, and optionally re-trigger the active sort.
+  // Also rebuilds rankCacheBySource for every year so the tooltip shows
+  // source-aware ranks across the whole history.
+  function recomputeRanksAndSync(triggerSort) {
+    // Rebuild per-year rank cache for the current source
+    rankCacheBySource = {};
+    for (var yi = 0; yi < availYears.length; yi++) {
+      var yr = availYears[yi];
+      rankCacheBySource[yr] = computeRanksForYearSource(yr, currentSource);
+    }
+
+    // Update fullData[].value for the current year: default to 999 then apply cache
+    var cur = rankCacheBySource[currentYear] || {};
+    for (var ri = 1; ri <= FULL_ROWS; ri++) {
+      var instCols = fullDataByInst[ri];
+      if (!instCols) continue;
+      var instRanks = cur[ri] || {};
+      for (var ci = 1; ci <= col_number; ci++) {
+        var fd = instCols[ci];
+        if (!fd) continue;
+        fd.value = instRanks[ci] || 999;
+      }
+    }
+
+    rebuildDataValues();
+
+    if (triggerSort) {
+      if (currentOrderMode === "cosort") {
+        coSort(+document.getElementById("nValue").value);
+      } else if (currentOrderMode === "topten") {
+        var nv = +document.getElementById("nValue").value;
+        RankingTopN = rankingOrderForDisplay(nv);
+        order("topten", 400, RankingTopN);
+      }
+      // "contrast" and "custom" are rank-independent (layout-wise) — no re-sort
+    }
+  }
+
   // Unified fill function: returns the correct color given current mode/source
   function cellFill(d, nv) {
     // Dollar-based modes color every cell with real data (not just top-N).
@@ -544,8 +617,9 @@ d3.json("dist/data/data_all_years_750.json", function(error, payload) {
           : "white";
       }
     }
-    // "rank" mode (default): use top-N filter as before
-    return colorScale(d.value);
+    // "rank" mode (default): top-N blue, else white. Use the live nv param
+    // (not the stale module-level colorScale which was baked at init with N=10).
+    return (d.value !== 999 && d.value <= nv) ? HIGHLIGHT_COLOR : "white";
   }
 
   // Format dollars (input in thousands) as compact string: "$1.23B", "$450M", "$12.3M"
@@ -557,13 +631,26 @@ d3.json("dist/data/data_all_years_750.json", function(error, payload) {
     return "$" + amountK + "K";
   }
 
-  // Build the year-by-year tooltip breakdown for a cell (most recent year first)
+  // Build the year-by-year tooltip breakdown for a cell (most recent year first).
+  // Rank column is source-aware: falls back to JSON's total-R&D rank (_src.y<yr>)
+  // when rankCacheBySource hasn't been built yet (initial page load, source=both).
   function buildTipYears(d) {
     var src = d._src;
     if (!src) return "";
+    var instRow = src.row;
+    var colIdx  = src.col;
     var yearsDesc = availYears.slice().reverse();
     var rows = yearsDesc.map(function(yr) {
-      var rank = src["y" + yr];
+      // Source-aware rank lookup
+      var rank;
+      if (rankCacheBySource && rankCacheBySource[yr] &&
+          rankCacheBySource[yr][instRow] &&
+          rankCacheBySource[yr][instRow][colIdx]) {
+        rank = rankCacheBySource[yr][instRow][colIdx];
+      } else {
+        // Fallback to JSON's precomputed total-R&D rank (source=both equivalent)
+        rank = src["y" + yr];
+      }
       var f = src["f" + yr] || 0;
       var n = src["n" + yr] || 0;
       var total = f + n;
@@ -1029,19 +1116,18 @@ d3.json("dist/data/data_all_years_750.json", function(error, payload) {
     currentYearKey = "y" + year;
     var nv = +document.getElementById("nValue").value;
 
-    // Update fullData for all FULL_ROWS (source of truth for sort computation).
-    fullData.forEach(function(d) {
-      var v = d._src ? d._src[currentYearKey] : undefined;
-      d.value   = (v !== undefined && v !== 999) ? v : 999;
-      d.ranking = d.value;
-    });
-    // Sync display-slot values from the (now updated) fullData.
-    rebuildDataValues();
+    // Recompute source-aware ranks for the new year, sync display slots, and
+    // re-run any rank-dependent sort (co-occurrence, top-N count).
+    recomputeRanksAndSync(true);
 
-    RankingTopN = rankingOrderForDisplay(nv);
-    var cs = makeColorScale(nv);
+    // RankingTopN may have been updated inside recomputeRanksAndSync (for topten
+    // sort). If sort wasn't re-run (contrast / custom), refresh the reference
+    // here so label-click modes stay coherent.
+    if (currentOrderMode !== "topten" && currentOrderMode !== "cosort") {
+      RankingTopN = rankingOrderForDisplay(nv);
+    }
 
-    // Recolor cells (refreshCellColors handles rowshare-mode recomputation)
+    // Recolor cells + refresh cell-content text / font / aria
     refreshCellColors();
 
     svg.selectAll(".cell-contents")
@@ -1060,15 +1146,6 @@ d3.json("dist/data/data_all_years_750.json", function(error, payload) {
     svgRoot.attr("aria-label",
       "Interactive heatmap: FY" + year + " NSF R&D expenditure rankings for the top 50 " +
       "U.S. research universities across " + col_number + " research fields.");
-    // svgTitle.text("FY" + year + " NSF R&D Expenditure Rankings — Top 50 Universities, " + col_number + " Research Fields");
-
-    // Re-apply current sort mode so the ordering remains coherent
-    if (currentOrderMode === "topten") {
-      order("topten", 400, RankingTopN);
-    } else if (currentOrderMode === "cosort") {
-      coSort(nv);
-    }
-    // "contrast" and "custom" (label-click) orderings are index-based — no update needed
 
     // Sparklines: data unchanged (same inst per slot) but active-year marker moves
     redrawSparklines();
@@ -1442,6 +1519,12 @@ d3.json("dist/data/data_all_years_750.json", function(error, payload) {
   d3.select("#order").on("change", function(){
     var prevMode = currentOrderMode;
     currentOrderMode = this.value;
+    // Refresh RankingTopN from current fullData.value (source + year aware)
+    // so "By Count of Top-N" never runs with a stale permutation computed
+    // under a prior source filter.
+    if (this.value === "topten") {
+      RankingTopN = rankingOrderForDisplay(+document.getElementById("nValue").value);
+    }
     order(this.value, 1200, RankingTopN, prevMode);
   });
 
@@ -1449,8 +1532,12 @@ d3.json("dist/data/data_all_years_750.json", function(error, payload) {
   //
   // refreshCellColors is the single entry point for re-rendering cells after
   // any mode, source, or year change. It recomputes rowSourceTotals when in
-  // rowshare mode (per-institution totals depend on year AND source) so
-  // handlers never need to call computeRowSourceTotals themselves.
+  // rowshare mode, and re-renders cell text (the rank numbers) so that what
+  // the user sees always matches the current d.value.
+  //
+  // IMPORTANT: Source change updates d.value → without re-rendering text, the
+  // DOM shows stale rank numbers (e.g. total-R&D ranks) while sorts read the
+  // new ones, producing an apparent "wrong sort order."
   function refreshCellColors() {
     if (currentMode === "rowshare") computeRowSourceTotals();
     var nv = +document.getElementById("nValue").value;
@@ -1458,12 +1545,19 @@ d3.json("dist/data/data_all_years_750.json", function(error, payload) {
       .style("fill",         function(d){ return cellFill(d, nv); })
       .style("stroke",       function(d){ return d.value <= nv ? HIGHLIGHT_DARK : "gray"; })
       .style("stroke-width", function(d){ return d.value <= nv ? "1.2px" : "0.3px"; });
+    svg.selectAll(".cell-contents")
+      .style("font-weight", function(d){ return d.value <= nv ? "600" : "400"; })
+      .style("font-size",   function(d){ return d.value <= nv ? numFontB : numFontS; })
+      .attr("aria-label",   function(d){
+        if (d.value === 999) return rowLabelFull[d.row-1] + ", " + colLabelFull[d.col-1] + ", not ranked";
+        return rowLabelFull[d.row-1] + ", " + colLabelFull[d.col-1] + ", ranked " + d.value +
+               (d.value <= nv ? ", top " + nv : "");
+      })
+      .text(function(d){ return (d.value === 999 || HIDE_NUMS) ? "" : d.value; });
   }
 
   d3.select("#modeSelect").on("change", function() {
     currentMode = this.value;
-    var isDollarLike = (currentMode === "dollars" || currentMode === "rowshare");
-    document.getElementById("sourceRow").style.display = isDollarLike ? "flex" : "none";
     svg.selectAll(".dollar-legend").style("display",
       currentMode === "dollars" ? null : "none");
     svg.selectAll(".rowshare-legend").style("display",
@@ -1471,8 +1565,11 @@ d3.json("dist/data/data_all_years_750.json", function(error, payload) {
     refreshCellColors();
   });
 
+  // Source is a global data filter — recompute ranks and re-run any
+  // rank-dependent arrangement (co-occurrence, top-N count).
   d3.select("#sourceSelect").on("change", function() {
     currentSource = this.value;
+    recomputeRanksAndSync(true);
     refreshCellColors();
   });
 

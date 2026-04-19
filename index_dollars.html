@@ -64,31 +64,46 @@
         text-overflow: ellipsis;
       }
 
-      /* Controls overlay — positioned above row labels in the chart panel */
-      #chart-controls {
+      /* ── Horizontal control strip (below topbar, above chart) ── */
+      #control-strip {
+        flex: 0 0 auto;
+        height: 44px;
         display: flex;
-        flex-direction: column;
-        gap: 5px;
-        padding: 4px 0;
-      }
-      #chart-controls label {
-        font-size: 10px;
-        font-weight: 600;
-        color: #888;
-        margin: 0;
-        white-space: nowrap;
+        align-items: center;
+        gap: 18px;
+        padding: 0 20px;
+        background: #121226;
+        border-bottom: 1px solid #2a2a44;
         font-family: Consolas, courier, monospace;
       }
-      .ctrl-row {
+      .ctrl-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .ctrl-group + .ctrl-group {
+        border-left: 1px solid #2a2a44;
+        padding-left: 18px;
+      }
+      .ctrl-group-label {
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #666;
+        margin-right: 2px;
+        white-space: nowrap;
+      }
+      .ctrl-strip-pair {
         display: flex;
         align-items: center;
         gap: 5px;
       }
-      .ctrl-row span {
-        font-size: 10px;
-        color: #666;
+      .ctrl-strip-pair label {
+        font-size: 11px;
+        color: #9cb;
+        font-weight: 600;
+        margin: 0;
         white-space: nowrap;
-        font-family: Consolas, courier, monospace;
       }
       #nValue {
         width: 42px; height: 22px;
@@ -96,13 +111,17 @@
         border: 1px solid #333; border-radius: 3px;
         background: #1a1a2e; color: #ddd;
       }
-      #order, #yearSelect {
-        height: 22px; font-size: 10px; padding: 1px 3px;
+      #order, #yearSelect, #modeSelect, #sourceSelect {
+        height: 22px; font-size: 11px; padding: 1px 5px;
         border: 1px solid #333; border-radius: 3px;
         background: #1a1a2e; color: #ddd;
-        max-width: 124px;
       }
-      #nValue:focus, #order:focus, #yearSelect:focus {
+      #yearSelect { min-width: 78px; }
+      #order      { min-width: 148px; }
+      #modeSelect { min-width: 200px; }
+      #sourceSelect { min-width: 160px; }
+      #nValue:focus, #order:focus, #yearSelect:focus,
+      #modeSelect:focus, #sourceSelect:focus {
         outline: 2px solid #4a90d9;
         outline-offset: 1px;
       }
@@ -137,69 +156,154 @@
         display: flex;
         flex-direction: row;
         overflow: hidden;
+        padding-left: 32px;  /* leave room for the narrative ribbon */
       }
 
-      /* ── Narrative panel (left third) ── */
-      #narrative-panel {
-        flex: 0 0 33.333%;
-        padding: 32px 28px 20px 24px;
+      /* ── Floating narrative ribbon (always visible) ── */
+      #narrative-ribbon {
+        position: fixed;
+        left: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        background: #1a1a2e;
+        border: 1px solid #2a2a44;
+        border-left: none;
+        border-radius: 0 4px 4px 0;
+        color: #9cb;
+        font-family: Consolas, monospace;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        cursor: pointer;
+        padding: 16px 5px;
+        writing-mode: vertical-rl;
+        text-orientation: mixed;
+        z-index: 90;
+        transition: background 0.15s, color 0.15s;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+      }
+      #narrative-ribbon:hover { background: #252542; color: #aed; }
+      #narrative-ribbon:focus { outline: 2px solid #4a90d9; outline-offset: 2px; }
+      #narrative-ribbon::after {
+        content: "\25B8";  /* ▸ right-pointing chevron */
+        display: block;
+        margin-top: 8px;
+        writing-mode: horizontal-tb;
+        text-align: center;
+        font-size: 10px;
+        opacity: 0.7;
+      }
+
+      /* ── Narrative overlay panel (fixed, slides over chart) ── */
+      #narrative-overlay {
+        position: fixed;
+        top: 0; left: 0; bottom: 0;
+        width: 420px;
+        max-width: 90vw;
+        background: #131324;
+        border-right: 1px solid #2a2a44;
+        box-shadow: 2px 0 16px rgba(0,0,0,0.5);
+        z-index: 120;
+        transform: translateX(-100%);
+        transition: transform 0.25s ease;
         display: flex;
         flex-direction: column;
-        text-align: left;
-        gap: 14px;
-        border-right: 1px solid #2a2a44;
-        overflow-y: auto;
-        position: relative;
-        transition: flex-basis 0.3s ease, padding 0.3s ease;
       }
-      #narrative-panel.collapsed {
-        flex: 0 0 26px;
-        padding: 4px 0;
-        overflow: hidden;
+      #narrative-overlay.open { transform: translateX(0); }
+      #narrative-backdrop {
+        position: fixed;
+        top: 0; right: 0; bottom: 0; left: 0;
+        background: rgba(0,0,0,0.4);
+        z-index: 110;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.25s ease;
       }
-      #narrative-panel.collapsed > *:not(#narrative-toggle) { display: none; }
-      #narrative-toggle {
-        position: absolute; top: 10px; right: 6px;
-        width: 18px; height: 18px;
-        background: #1a1a2e; border: 1px solid #2a2a44; border-radius: 3px;
-        color: #9cb; font-size: 11px; font-family: Consolas, monospace;
-        cursor: pointer; padding: 0; line-height: 1;
-        display: flex; align-items: center; justify-content: center;
-        z-index: 5;
+      #narrative-backdrop.open {
+        opacity: 1;
+        pointer-events: auto;
       }
-      #narrative-toggle:hover { background: #252542; color: #aed; }
-      #narrative-panel.collapsed #narrative-toggle { right: 4px; }
-      #narrative-panel h4 {
-        font-size: 22px;
+      #narrative-overlay-header {
+        flex: 0 0 auto;
+        padding: 18px 24px 10px 24px;
+        border-bottom: 1px solid #2a2a44;
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      #narrative-overlay-header h4 {
+        margin: 0;
+        font-size: 18px;
         font-weight: 500;
         color: #c8c8e0;
         line-height: 1.3;
-        margin: 0;
       }
-      #narrative-panel p {
-        font-size: 14px;
-        line-height: 1.75;
-        color: #8888aa;
-        margin: 0;
+      #narrative-overlay-close {
+        background: none; border: none; color: #666;
+        font-size: 22px; cursor: pointer; padding: 0 4px; line-height: 1;
       }
-      #narrative-panel p.lead {
-        font-size: 15px;
+      #narrative-overlay-close:hover { color: #ccc; }
+
+      #narrative-overlay-body {
+        flex: 1 1 auto;
+        padding: 16px 24px 24px 24px;
+        overflow-y: auto;
+        font-family: Consolas, monospace;
+        text-align: left;
+      }
+      #narrative-overlay-header { text-align: left; }
+      #narrative-overlay-body p {
+        font-size: 13px;
+        line-height: 1.65;
         color: #b0b0cc;
+        margin: 0 0 12px 0;
+      }
+      #narrative-overlay-body p.lead {
+        font-size: 14px;
+        color: #c8c8e0;
         font-weight: 500;
-        line-height: 1.5;
+        margin-bottom: 14px;
       }
-      #narrative-panel p.mode-head {
-        font-size: 11px;
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
-        color: #666;
-        margin-top: 6px;
+      #narrative-overlay-body ul {
+        padding-left: 18px;
+        margin: 0 0 14px 0;
+        color: #9999bb;
+        font-size: 12.5px;
+        line-height: 1.7;
       }
-      #narrative-panel strong.mode-label {
+      #narrative-overlay-body ul li { margin-bottom: 2px; }
+      #narrative-overlay-body strong.mode-label {
         color: #9cb;
         font-weight: 600;
-        font-size: 13px;
+        font-size: 12px;
       }
+      #narrative-overlay-body details {
+        margin-top: 16px;
+        border-top: 1px solid #2a2a44;
+        padding-top: 14px;
+      }
+      #narrative-overlay-body details summary {
+        cursor: pointer;
+        color: #4a90d9;
+        font-size: 12px;
+        font-weight: 600;
+        margin-bottom: 10px;
+        list-style: none;
+        outline: none;
+      }
+      #narrative-overlay-body details summary::-webkit-details-marker { display: none; }
+      #narrative-overlay-body details summary::before {
+        content: "\25B8 ";
+        display: inline-block;
+        transition: transform 0.15s;
+        margin-right: 4px;
+      }
+      #narrative-overlay-body details[open] summary::before {
+        transform: rotate(90deg);
+      }
+      #narrative-overlay-body details summary:hover { color: #6aa8e5; }
+      #narrative-overlay-body details p { color: #8888aa; font-size: 12.5px; }
 
       /* ── Chart panel (right two-thirds) ── */
       #chart-panel {
@@ -283,79 +387,93 @@
 
   </div>
 
-  <main class="chart-wrap" id="main-content">
+  <!-- Horizontal control strip -->
+  <div id="control-strip" role="group" aria-label="Chart controls">
+    <div class="ctrl-group">
+      <span class="ctrl-group-label">Data</span>
+      <div class="ctrl-strip-pair">
+        <label for="yearSelect">Year</label>
+        <select id="yearSelect" aria-label="Select fiscal year">
+          <!-- populated by app_all_years_dollars.js from data headers -->
+        </select>
+      </div>
+      <div class="ctrl-strip-pair">
+        <label for="nValue">Top N</label>
+        <input type="number" id="nValue" min="1" max="50" step="1" value="10"
+               aria-describedby="nValue-hint">
+        <span id="nValue-hint" class="sr-only">Number between 1 and 50</span>
+      </div>
+      <div class="ctrl-strip-pair">
+        <label for="sourceSelect">Source</label>
+        <select id="sourceSelect" aria-label="Dollar source">
+          <option value="both" selected>Federal + Non-Federal</option>
+          <option value="federal">Federal only</option>
+          <option value="nonfederal">Non-Federal only</option>
+        </select>
+      </div>
+    </div>
 
-    <!-- Narrative panel -->
-    <aside id="narrative-panel" aria-label="About this visualization">
-      <button id="narrative-toggle" aria-label="Toggle narrative panel" title="Collapse / expand narrative">&#9664;</button>
-      <h4><em>What does it mean to be a research university?</em></h4>
+    <div class="ctrl-group">
+      <span class="ctrl-group-label">Arrange</span>
+      <select id="order" aria-label="Regroup rows and columns">
+        <option value="custom" disabled selected>Arrange…</option>
+        <option value="contrast">By Research Field</option>
+        <option value="topten">By Count of Top-N</option>
+        <option value="cosort">By Co-occurrence</option>
+      </select>
+    </div>
 
+    <div class="ctrl-group">
+      <span class="ctrl-group-label">Color</span>
+      <select id="modeSelect" aria-label="Color cells by rank or dollars">
+        <option value="rank" selected>Cell color by Rank (uniform blue)</option>
+        <option value="dollars">Cell color by Dollars (absolute)</option>
+        <option value="rowshare">Cell color by Share of university R&amp;D</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Floating ribbon tab: opens the narrative overlay -->
+  <button id="narrative-ribbon" aria-label="About this chart" aria-controls="narrative-overlay">
+    ABOUT THIS CHART
+  </button>
+
+  <!-- Narrative overlay: slides in from the left when ribbon is clicked -->
+  <div id="narrative-backdrop" aria-hidden="true"></div>
+  <aside id="narrative-overlay" aria-hidden="true" aria-labelledby="narrative-title">
+    <div id="narrative-overlay-header">
+      <h4 id="narrative-title"><em>What does it mean to be a research university?</em></h4>
+      <button id="narrative-overlay-close" aria-label="Close narrative">&times;</button>
+    </div>
+    <div id="narrative-overlay-body">
       <p class="lead">Every year, the NSF asks: where did the money go? Who spent what, and where?</p>
-      <p>Displayed here are the 250 institutions (of 919 total) with the most R&amp;D expenditures in the latest year, ranked within 33 subfields. Each cell is that university's national rank in that discipline. Blue means top&nbsp;N. <em>Click any university name or field header to re-sort.</em></p>
 
-      <p>Use the <strong class="mode-label">Year</strong> dropdown in the chart controls to step through FY2012 to FY2024. The same 250 institutions are shown across all years — cells go blank for fields not tracked in a given year, or for institutions that weren't yet in the top tier.</p>
+      <p>Displayed here are the 250 institutions (of 919 total) with the most R&amp;D expenditures in the latest year, ranked within 33 subfields. Each cell is that university's national rank in that discipline. Blue means top&nbsp;N.</p>
 
-      <p>The distribution is the story. Some universities concentrate almost everything in one or two fields and barely register elsewhere. Others appear across every column without leading any of them. A few anchor a whole family of related disciplines and fade outside it. These aren't random patterns. They're the accumulated result of decades of hiring, funding, and institutional identity.</p>
+      <p><strong class="mode-label">How to read it</strong></p>
+      <ul>
+        <li><strong>Click</strong> a university name or field header to sort by it</li>
+        <li><strong>Hover</strong> any cell for year-by-year rank &amp; $ breakdown</li>
+        <li><strong>Arrange</strong> rows by field, Top-N count, or co-occurrence clusters</li>
+        <li><strong>Color</strong> by rank, absolute $, or share of the university's own R&amp;D</li>
+        <li><strong>Year</strong> steps through FY2012 to FY2024</li>
+      </ul>
 
-      <p><strong class="mode-label" style="font-size:16px">Three ways to look</strong>
-      <p><strong class="mode-label">By Research Field</strong> groups columns by discipline — all engineering together, all life sciences together. Read across a row to see a university's full portfolio. Read down a column to see who leads in a single field and who doesn't show up at all.</p>
-      <p><strong class="mode-label">By Count of Top‑N</strong> sorts by breadth. Set a threshold and the universities leading the most fields rise to the top. Low N surfaces specialists. High N surfaces generalists.</p>
-      <p><strong class="mode-label">By Co‑occurrence</strong> doesn't ask who's best. It asks who's alike. Rows and columns reorder together, pulling universities with overlapping strengths toward each other. The clusters that form make visible institutional identities.</p></aside>
+      <p>The distribution is the story: specialists lead one field, generalists spread across many, and co-occurrence makes institutional identities visible.</p>
+
+      <details>
+        <summary>Read more on the three arrange modes</summary>
+        <p><strong class="mode-label">By Research Field</strong> groups columns by discipline — all engineering together, all life sciences together. Read across a row to see a university's full portfolio. Read down a column to see who leads in a single field and who doesn't show up at all.</p>
+        <p><strong class="mode-label">By Count of Top‑N</strong> sorts by breadth. Set a threshold and the universities leading the most fields rise to the top. Low N surfaces specialists. High N surfaces generalists.</p>
+        <p><strong class="mode-label">By Co‑occurrence</strong> doesn't ask who's best. It asks who's alike. Rows and columns reorder together, pulling universities with overlapping strengths toward each other. The clusters that form make visible institutional identities.</p>
+      </details>
+    </div>
+  </aside>
+
+  <main class="chart-wrap" id="main-content">
 
     <!-- Chart panel -->
     <div id="chart-panel">
-
-      <!-- Controls overlay: positioned in top-left, above row labels -->
-      <div id="chart-controls" role="group" aria-label="Chart controls"
-           style="position:absolute; top:10px; left:20px; z-index:10;">
-        
-        <div class="ctrl-row">
-          <label for="yearSelect" style="color:#9cb;font-weight:600;text-align:left;font-size:13px;">Year</label>
-          <select id="yearSelect" aria-label="Select fiscal year">
-            <!-- populated by app_all_years.js from data headers -->
-          </select>
-        <!-- </div> -->
-
-        <!-- <div class="ctrl-row"> -->
-          <label for="nValue" style="text-align:left;font-size:12px">Top N per field</label>
-          <!-- <span style="font-size:16px">N =</span> -->
-          <input type="number" id="nValue" min="1" max="50" step="1" value="10"
-                 aria-describedby="nValue-hint">
-          <span id="nValue-hint" class="sr-only">Number between 1 and 50</span>
-        </div>
-
-        
-
-        <!-- <label for="order" style="color:#9cb;font-weight:600;text-align:left;font-size:13px;">Arrange by</label> -->
-        <select id="order" aria-label="Regroup rows and columns">
-          <option value="custom" disabled selected>Arrange…</option>
-          <option value="contrast">By Research Field</option>
-          <option value="topten">By Count of Top-N</option>
-          <option value="cosort">By Co-occurrence</option>
-        </select>
-
-        <div class="ctrl-row" style="margin-top:4px">
-          <!-- <label for="modeSelect" style="text-align:left;font-size:10px">Cell color</label> -->
-          <select id="modeSelect" aria-label="Color cells by rank or dollars"
-                  style="height:22px;font-size:10px;padding:1px 3px;border:1px solid #333;border-radius:3px;background:#1a1a2e;color:#ddd;max-width:124px;">
-            <option value="rank" selected>Cell color by Rank (uniform blue)</option>
-            <option value="dollars">Cell color by Dollars (absolute)</option>
-            <option value="rowshare">Cell color by Share of university R&amp;D</option>
-          </select>
-        </div>
-
-        <div class="ctrl-row" id="sourceRow" style="margin-top:4px">
-          <!-- <label for="sourceSelect" style="text-align:left;font-size:10px">$ source</label> -->
-          <select id="sourceSelect" aria-label="Dollar source"
-                  style="height:22px;font-size:10px;padding:1px 3px;border:1px solid #333;border-radius:3px;background:#1a1a2e;color:#ddd;max-width:124px;">
-            <option value="both" selected>Federal + Non-Federal</option>
-            <option value="federal">Federal only</option>
-            <option value="nonfederal">Non-Federal only</option>
-          </select>
-        </div>
-
-      </div>
-
       <div id="tooltip" class="hidden" role="tooltip">
         <div id="tip-uni"></div>
         <div id="tip-field"></div>
@@ -380,18 +498,35 @@
 <script src="dist/js/vendor/popper.min.js"></script>
 <script src="dist/js/bootstrap.min.js"></script>
 <script>
-  // Narrative panel collapse/expand (pure DOM, no d3 required)
+  // Narrative ribbon + overlay (pure DOM, no d3 required)
   (function() {
-    var btn = document.getElementById("narrative-toggle");
-    var panel = document.getElementById("narrative-panel");
-    if (btn && panel) {
-      btn.addEventListener("click", function() {
-        panel.classList.toggle("collapsed");
-        btn.innerHTML = panel.classList.contains("collapsed") ? "&#9654;" : "&#9664;";
-        // Trigger a window resize so the chart re-computes its layout
-        window.dispatchEvent(new Event("resize"));
-      });
+    var ribbon   = document.getElementById("narrative-ribbon");
+    var overlay  = document.getElementById("narrative-overlay");
+    var backdrop = document.getElementById("narrative-backdrop");
+    var closeBtn = document.getElementById("narrative-overlay-close");
+    if (!ribbon || !overlay || !backdrop) return;
+
+    function open() {
+      overlay.classList.add("open");
+      backdrop.classList.add("open");
+      overlay.setAttribute("aria-hidden", "false");
+      backdrop.setAttribute("aria-hidden", "false");
+      if (closeBtn) closeBtn.focus();
     }
+    function close() {
+      overlay.classList.remove("open");
+      backdrop.classList.remove("open");
+      overlay.setAttribute("aria-hidden", "true");
+      backdrop.setAttribute("aria-hidden", "true");
+      ribbon.focus();
+    }
+
+    ribbon.addEventListener("click", open);
+    backdrop.addEventListener("click", close);
+    if (closeBtn) closeBtn.addEventListener("click", close);
+    document.addEventListener("keydown", function(e) {
+      if (e.key === "Escape" && overlay.classList.contains("open")) close();
+    });
   })();
 </script>
 <script src="dist/js/app_all_years_dollars.js"></script>
