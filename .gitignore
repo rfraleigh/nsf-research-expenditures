@@ -2,3 +2,7 @@
 .zip
 .vscode
 archive/
+docs/
+*.dev.*
+todo.md
+.claude/

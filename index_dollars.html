@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="Interactive visualization of NSF R&D expenditure rankings for the top 50 U.S. research universities across 33 research fields, FY2012–FY2024.">
+    <meta name="author" content="Robbie Fraleigh">
+    <title>NSF R&D Expenditures | FY2012–2024</title>
+
+    <link href="dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="dist/css/cover.css" rel="stylesheet">
+    <link href="dist/css/index.css" rel="stylesheet">
+    <script src="dist/js/d3.v3.js"></script>
+
+    <style>
+      /* ── Skip link (WCAG 2.4.1) ── */
+      .skip-link {
+        position: absolute;
+        top: -40px;
+        left: 0;
+        background: #fff;
+        color: #111;
+        padding: 8px 16px;
+        font-size: 14px;
+        font-weight: 600;
+        z-index: 9999;
+        border-radius: 0 0 4px 0;
+        text-decoration: none;
+        transition: top 0.1s;
+      }
+      .skip-link:focus { top: 0; }
+
+      html, body { height: 100%; margin: 0; overflow: hidden; background: #111; }
+
+      .page-wrap {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+      }
+
+      /* ── Topbar ── */
+      .topbar {
+        flex: 0 0 auto;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        align-items: center;
+        padding: 0 16px;
+        height: 44px;
+        background: #1a1a2e;
+        border-bottom: 1px solid #2a2a44;
+      }
+
+      .topbar-title {
+        display: flex;
+        align-items: center;
+      }
+      .topbar-title h2 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 700;
+        color: #e8e8e8;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      /* Controls overlay — positioned above row labels in the chart panel */
+      #chart-controls {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        padding: 4px 0;
+      }
+      #chart-controls label {
+        font-size: 10px;
+        font-weight: 600;
+        color: #888;
+        margin: 0;
+        white-space: nowrap;
+        font-family: Consolas, courier, monospace;
+      }
+      .ctrl-row {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .ctrl-row span {
+        font-size: 10px;
+        color: #666;
+        white-space: nowrap;
+        font-family: Consolas, courier, monospace;
+      }
+      #nValue {
+        width: 42px; height: 22px;
+        font-size: 11px; padding: 1px 4px;
+        border: 1px solid #333; border-radius: 3px;
+        background: #1a1a2e; color: #ddd;
+      }
+      #order, #yearSelect {
+        height: 22px; font-size: 10px; padding: 1px 3px;
+        border: 1px solid #333; border-radius: 3px;
+        background: #1a1a2e; color: #ddd;
+        max-width: 124px;
+      }
+      #nValue:focus, #order:focus, #yearSelect:focus {
+        outline: 2px solid #4a90d9;
+        outline-offset: 1px;
+      }
+
+      /* Suppress browser native outline on SVG interactive elements */
+      svg text[tabindex]:focus        { outline: none; }
+      svg text[tabindex]:focus-visible { outline: none; }
+
+      /* Prevent native text-selection context menu on cell number labels */
+      .cell-contents {
+        user-select: none;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+      }
+
+      .topbar-note {
+        font-size: 10px;
+        color: #555;
+        text-align: right;
+        white-space: nowrap;
+        justify-self: end;
+      }
+      .topbar-note a { color: #666; text-decoration: none; }
+      .topbar-note abbr {
+        text-decoration: none;
+        border-bottom: 1px dotted #444;
+        cursor: help;
+      }
+
+      .chart-wrap {
+        flex: 1 1 auto;
+        display: flex;
+        flex-direction: row;
+        overflow: hidden;
+      }
+
+      /* ── Narrative panel (left third) ── */
+      #narrative-panel {
+        flex: 0 0 33.333%;
+        padding: 32px 28px 20px 24px;
+        display: flex;
+        flex-direction: column;
+        text-align: left;
+        gap: 14px;
+        border-right: 1px solid #2a2a44;
+        overflow-y: auto;
+        position: relative;
+        transition: flex-basis 0.3s ease, padding 0.3s ease;
+      }
+      #narrative-panel.collapsed {
+        flex: 0 0 26px;
+        padding: 4px 0;
+        overflow: hidden;
+      }
+      #narrative-panel.collapsed > *:not(#narrative-toggle) { display: none; }
+      #narrative-toggle {
+        position: absolute; top: 10px; right: 6px;
+        width: 18px; height: 18px;
+        background: #1a1a2e; border: 1px solid #2a2a44; border-radius: 3px;
+        color: #9cb; font-size: 11px; font-family: Consolas, monospace;
+        cursor: pointer; padding: 0; line-height: 1;
+        display: flex; align-items: center; justify-content: center;
+        z-index: 5;
+      }
+      #narrative-toggle:hover { background: #252542; color: #aed; }
+      #narrative-panel.collapsed #narrative-toggle { right: 4px; }
+      #narrative-panel h4 {
+        font-size: 22px;
+        font-weight: 500;
+        color: #c8c8e0;
+        line-height: 1.3;
+        margin: 0;
+      }
+      #narrative-panel p {
+        font-size: 14px;
+        line-height: 1.75;
+        color: #8888aa;
+        margin: 0;
+      }
+      #narrative-panel p.lead {
+        font-size: 15px;
+        color: #b0b0cc;
+        font-weight: 500;
+        line-height: 1.5;
+      }
+      #narrative-panel p.mode-head {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: #666;
+        margin-top: 6px;
+      }
+      #narrative-panel strong.mode-label {
+        color: #9cb;
+        font-weight: 600;
+        font-size: 13px;
+      }
+
+      /* ── Chart panel (right two-thirds) ── */
+      #chart-panel {
+        flex: 1 1 auto;
+        overflow: auto;
+        position: relative;
+      }
+
+      .sr-only {
+        position: absolute; width: 1px; height: 1px;
+        padding: 0; margin: -1px; overflow: hidden;
+        clip: rect(0,0,0,0); border: 0;
+      }
+
+      #tooltip {
+        position: fixed;
+        top: 170px; right: 20px;
+        width: 180px;
+        background: #fff;
+        border-radius: 8px;
+        padding: 9px 12px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+        pointer-events: none;
+        z-index: 100;
+      }
+      #tooltip.hidden { display: none; }
+      #tip-uni   { font-size: 12px; font-weight: 700; color: #111; margin-bottom: 2px; line-height: 1.3; }
+      #tip-field { font-size: 10px; color: #666; margin-bottom: 3px; }
+      #tip-rank  { font-size: 13px; color: #1565c0; font-weight: 700; margin-bottom: 4px; }
+      #tip-years {
+        font-size: 9.5px; font-family: Consolas, monospace;
+        color: #444; border-top: 1px solid #eee; padding-top: 4px; margin-top: 4px;
+      }
+      #tip-years .yr-row { display: flex; gap: 8px; line-height: 1.4; }
+      #tip-years .yr-row.active { background: #fffbe0; font-weight: 700; color: #111; padding: 0 3px; margin: 0 -3px; border-radius: 2px; }
+      #tip-years .yr-row .yr-lbl { color: #888; min-width: 38px; }
+      #tip-years .yr-row.active .yr-lbl { color: #333; }
+
+      /* Dollar-legend panel (swaps in for the Field-group legend in dollar mode) */
+      #dollar-legend { display: none; font-size: 10px; font-family: Consolas, monospace; color: #888; }
+      #dollar-legend .legend-title { color: #aaa; font-weight: 600; margin-bottom: 4px; font-size: 11px; }
+      #dollar-legend .band-row { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
+      #dollar-legend .band-swatch { width: 12px; height: 12px; border-radius: 2px; }
+
+      footer {
+        flex: 0 0 auto;
+        padding: 3px 16px;
+        font-size: 10px;
+        color: #555;
+        background: #0d0d1a;
+        border-top: 1px solid #222;
+        white-space: nowrap;
+        overflow: hidden;
+      }
+      footer a { color: #666; text-decoration: none; }
+
+    </style>
+</head>
+<body>
+
+<!-- WCAG 2.4.1: Skip navigation link -->
+<a class="skip-link" href="#chart">Skip to chart</a>
+
+<div class="page-wrap">
+
+  <div class="topbar" role="banner">
+
+    <!-- Left: title (updated dynamically by JS when year changes) -->
+    <div class="topbar-title">
+      <h2>NSF R&amp;D Expenditures by Research Field</h2>
+    </div>
+
+    <!-- Right: citation + legend note -->
+    <div class="topbar-note">
+      <abbr title="NSF/NCSES Higher Education R&amp;D Survey microdata, FY2012–2024">
+        Data: <a href="https://ncses.nsf.gov/explore-data/microdata/higher-education-research-development" target="_blank">HERD 2012–2024</a>
+      </abbr>
+      &nbsp;·&nbsp; top 50 by latest year &nbsp;·&nbsp; ranks within field &nbsp;·&nbsp;
+      <span style="color:#4a90d9">■</span> = top&nbsp;N
+    </div>
+
+  </div>
+
+  <main class="chart-wrap" id="main-content">
+
+    <!-- Narrative panel -->
+    <aside id="narrative-panel" aria-label="About this visualization">
+      <button id="narrative-toggle" aria-label="Toggle narrative panel" title="Collapse / expand narrative">&#9664;</button>
+      <h4><em>What does it mean to be a research university?</em></h4>
+
+      <p class="lead">Every year, the NSF asks: where did the money go? Who spent what, and where?</p>
+      <p>Displayed here are the 250 institutions (of 919 total) with the most R&amp;D expenditures in the latest year, ranked within 33 subfields. Each cell is that university's national rank in that discipline. Blue means top&nbsp;N. <em>Click any university name or field header to re-sort.</em></p>
+
+      <p>Use the <strong class="mode-label">Year</strong> dropdown in the chart controls to step through FY2012 to FY2024. The same 250 institutions are shown across all years — cells go blank for fields not tracked in a given year, or for institutions that weren't yet in the top tier.</p>
+
+      <p>The distribution is the story. Some universities concentrate almost everything in one or two fields and barely register elsewhere. Others appear across every column without leading any of them. A few anchor a whole family of related disciplines and fade outside it. These aren't random patterns. They're the accumulated result of decades of hiring, funding, and institutional identity.</p>
+
+      <p><strong class="mode-label" style="font-size:16px">Three ways to look</strong>
+      <p><strong class="mode-label">By Research Field</strong> groups columns by discipline — all engineering together, all life sciences together. Read across a row to see a university's full portfolio. Read down a column to see who leads in a single field and who doesn't show up at all.</p>
+      <p><strong class="mode-label">By Count of Top‑N</strong> sorts by breadth. Set a threshold and the universities leading the most fields rise to the top. Low N surfaces specialists. High N surfaces generalists.</p>
+      <p><strong class="mode-label">By Co‑occurrence</strong> doesn't ask who's best. It asks who's alike. Rows and columns reorder together, pulling universities with overlapping strengths toward each other. The clusters that form make visible institutional identities.</p></aside>
+
+    <!-- Chart panel -->
+    <div id="chart-panel">
+
+      <!-- Controls overlay: positioned in top-left, above row labels -->
+      <div id="chart-controls" role="group" aria-label="Chart controls"
+           style="position:absolute; top:10px; left:20px; z-index:10;">
+        
+        <div class="ctrl-row">
+          <label for="yearSelect" style="color:#9cb;font-weight:600;text-align:left;font-size:13px;">Year</label>
+          <select id="yearSelect" aria-label="Select fiscal year">
+            <!-- populated by app_all_years.js from data headers -->
+          </select>
+        <!-- </div> -->
+
+        <!-- <div class="ctrl-row"> -->
+          <label for="nValue" style="text-align:left;font-size:12px">Top N per field</label>
+          <!-- <span style="font-size:16px">N =</span> -->
+          <input type="number" id="nValue" min="1" max="50" step="1" value="10"
+                 aria-describedby="nValue-hint">
+          <span id="nValue-hint" class="sr-only">Number between 1 and 50</span>
+        </div>
+
+        
+
+        <!-- <label for="order" style="color:#9cb;font-weight:600;text-align:left;font-size:13px;">Arrange by</label> -->
+        <select id="order" aria-label="Regroup rows and columns">
+          <option value="custom" disabled selected>Arrange…</option>
+          <option value="contrast">By Research Field</option>
+          <option value="topten">By Count of Top-N</option>
+          <option value="cosort">By Co-occurrence</option>
+        </select>
+
+        <div class="ctrl-row" style="margin-top:4px">
+          <!-- <label for="modeSelect" style="text-align:left;font-size:10px">Cell color</label> -->
+          <select id="modeSelect" aria-label="Color cells by rank or dollars"
+                  style="height:22px;font-size:10px;padding:1px 3px;border:1px solid #333;border-radius:3px;background:#1a1a2e;color:#ddd;max-width:124px;">
+            <option value="rank" selected>Cell color by Rank (uniform blue)</option>
+            <option value="dollars">Cell color by Dollars (absolute)</option>
+            <option value="rowshare">Cell color by Share of university R&amp;D</option>
+          </select>
+        </div>
+
+        <div class="ctrl-row" id="sourceRow" style="margin-top:4px">
+          <!-- <label for="sourceSelect" style="text-align:left;font-size:10px">$ source</label> -->
+          <select id="sourceSelect" aria-label="Dollar source"
+                  style="height:22px;font-size:10px;padding:1px 3px;border:1px solid #333;border-radius:3px;background:#1a1a2e;color:#ddd;max-width:124px;">
+            <option value="both" selected>Federal + Non-Federal</option>
+            <option value="federal">Federal only</option>
+            <option value="nonfederal">Non-Federal only</option>
+          </select>
+        </div>
+
+      </div>
+
+      <div id="tooltip" class="hidden" role="tooltip">
+        <div id="tip-uni"></div>
+        <div id="tip-field"></div>
+        <div id="tip-rank"></div>
+        <div id="tip-years"></div>
+      </div>
+      <!-- WCAG 1.1.1: aria-label and role="img" added programmatically in app_all_years.js -->
+      <div id="chart"></div>
+    </div>
+
+  </main>
+
+  <footer>
+    Visualization by <a href="https://github.com/rfraleigh">Robbie Fraleigh · @rfraleigh</a>
+  </footer>
+
+</div>
+
+
+
+<script src="dist/js/vendor/jquery-slim.min.js"></script>
+<script src="dist/js/vendor/popper.min.js"></script>
+<script src="dist/js/bootstrap.min.js"></script>
+<script>
+  // Narrative panel collapse/expand (pure DOM, no d3 required)
+  (function() {
+    var btn = document.getElementById("narrative-toggle");
+    var panel = document.getElementById("narrative-panel");
+    if (btn && panel) {
+      btn.addEventListener("click", function() {
+        panel.classList.toggle("collapsed");
+        btn.innerHTML = panel.classList.contains("collapsed") ? "&#9654;" : "&#9664;";
+        // Trigger a window resize so the chart re-computes its layout
+        window.dispatchEvent(new Event("resize"));
+      });
+    }
+  })();
+</script>
+<script src="dist/js/app_all_years_dollars.js"></script>
+
+</body>
+</html>

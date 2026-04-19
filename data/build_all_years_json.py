@@ -110,13 +110,17 @@ def shorten_name(name: str) -> str:
 
 # ── Per-year parsing ───────────────────────────────────────────────────────────
 
-def parse_year_zip(zip_path: str) -> tuple[dict, dict]:
+def parse_year_zip(zip_path: str) -> tuple[dict, dict, dict, dict]:
     """
     Parse one HERD zip file.
 
     Returns:
-        totals  : {short_inst_name: total_rd_dollars}
-        amounts : {short_inst_name: {display_field: dollars}}
+        totals       : {short_inst_name: total_rd_dollars}  (institution-level)
+        amounts      : {short_inst_name: {display_field: combined_fed+nonfed_$}}
+        fed_amounts  : {short_inst_name: {display_field: federal_$}}
+        nonfed_amounts: {short_inst_name: {display_field: nonfederal_$}}
+
+    All dollar values are in thousands of dollars (HERD convention).
     """
     totals = {}
     nonfed: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
@@ -146,16 +150,30 @@ def parse_year_zip(zip_path: str) -> tuple[dict, dict]:
                     fed[inst][FIELD_MAP[row][0]] += val
 
     amounts: dict[str, dict[str, int]] = {}
+    fed_amounts: dict[str, dict[str, int]] = {}
+    nonfed_amounts: dict[str, dict[str, int]] = {}
     for inst in set(list(nonfed) + list(fed)):
-        inst_amounts = {
-            field: nonfed[inst].get(field, 0) + fed[inst].get(field, 0)
-            for field in DISPLAY_FIELDS
-            if nonfed[inst].get(field, 0) + fed[inst].get(field, 0) > 0
-        }
+        inst_amounts = {}
+        inst_fed = {}
+        inst_nonfed = {}
+        for field in DISPLAY_FIELDS:
+            f_val = fed[inst].get(field, 0)
+            n_val = nonfed[inst].get(field, 0)
+            total = f_val + n_val
+            if total > 0:
+                inst_amounts[field] = total
+            if f_val > 0:
+                inst_fed[field] = f_val
+            if n_val > 0:
+                inst_nonfed[field] = n_val
         if inst_amounts:
             amounts[inst] = inst_amounts
+        if inst_fed:
+            fed_amounts[inst] = inst_fed
+        if inst_nonfed:
+            nonfed_amounts[inst] = inst_nonfed
 
-    return totals, amounts
+    return totals, amounts, fed_amounts, nonfed_amounts
 
 
 def compute_field_ranks(amounts: dict) -> dict[str, dict[str, int]]:
@@ -199,19 +217,19 @@ def build_consolidated_json(data_dir: str, top_n: int) -> dict:
 
     print(f"Found {len(zips)} zip file(s): {[yr for yr, _ in zips]}\n")
 
-    # Per-year data: {year: (totals, amounts, field_ranks)}
-    year_data: dict[str, tuple[dict, dict, dict]] = {}
+    # Per-year data: {year: (totals, amounts, fed_amounts, nonfed_amounts, field_ranks)}
+    year_data: dict[str, tuple[dict, dict, dict, dict, dict]] = {}
     for year, zip_path in zips:
         print(f"Processing FY{year} …")
-        totals, amounts = parse_year_zip(zip_path)
+        totals, amounts, fed_amounts, nonfed_amounts = parse_year_zip(zip_path)
         field_ranks = compute_field_ranks(amounts)
-        year_data[year] = (totals, amounts, field_ranks)
+        year_data[year] = (totals, amounts, fed_amounts, nonfed_amounts, field_ranks)
         print(f"  FY{year}: {len(totals)} institutions total")
 
     # Institution order: top-N from most recent year, then any additional insts
     # from older years (sorted by their own year's rank)
     latest_year = max(year_data.keys())
-    latest_totals = year_data[latest_year][0]
+    latest_totals = year_data[latest_year][0]  # totals is the first element of the tuple
     top_latest = sorted(latest_totals.items(), key=lambda x: x[1], reverse=True)[:top_n]
     inst_order = [inst for inst, _ in top_latest]
     # Overall rank for latest year (1-based, used as 'ranking' sentinel)
@@ -219,9 +237,10 @@ def build_consolidated_json(data_dir: str, top_n: int) -> dict:
 
     # Include any institution that appears in an older year but not the latest
     seen = set(inst_order)
-    for year, (totals, _, _) in sorted(year_data.items()):
+    for year, yd in sorted(year_data.items()):
         if year == latest_year:
             continue
+        totals = yd[0]
         for inst in sorted(totals, key=lambda i: totals[i], reverse=True):
             if inst not in seen:
                 inst_order.append(inst)
@@ -232,6 +251,13 @@ def build_consolidated_json(data_dir: str, top_n: int) -> dict:
 
     available_years = sorted(year_data.keys())
 
+    # Per-institution annual totals (for sparkline) — only include institutions
+    # present in inst_order; store as list aligned to uni_ind for compactness
+    uni_totals_by_year: dict[str, list[int]] = {}
+    for year in available_years:
+        totals_y = year_data[year][0]
+        uni_totals_by_year[f"y{year}"] = [totals_y.get(inst, 0) for inst in inst_order]
+
     headers = {
         "uni_name":    inst_order,
         "uni_ind":     list(range(1, len(inst_order) + 1)),
@@ -240,6 +266,7 @@ def build_consolidated_json(data_dir: str, top_n: int) -> dict:
         "field_dict":  FIELD_GROUP,
         "years":       available_years,
         "latest_year": latest_year,
+        "uni_totals":  uni_totals_by_year,
     }
 
     # Pre-seed records dict so every (inst, field) combo gets a row
@@ -254,21 +281,32 @@ def build_consolidated_json(data_dir: str, top_n: int) -> dict:
                 "ranking": latest_overall_rank.get(inst, 999),
             }
 
-    # Fill in per-year field ranks
-    for year, (totals, amounts, field_ranks) in year_data.items():
+    # Fill in per-year field ranks and dollar amounts
+    for year, (totals, amounts, fed_amounts, nonfed_amounts, field_ranks) in year_data.items():
         year_key = f"y{year}"
+        fed_key  = f"f{year}"
+        non_key  = f"n{year}"
         for inst in inst_order:
             if inst not in inst_index:
                 continue
             row_idx = inst_index[inst]
             ranks = field_ranks.get(inst, {})
+            finst = fed_amounts.get(inst, {})
+            ninst = nonfed_amounts.get(inst, {})
             for field in DISPLAY_FIELDS:
                 col_idx = field_index[field]
                 key = (row_idx, col_idx)
                 field_rank = ranks.get(field, 999)
                 records[key][year_key] = field_rank
+                # Dollar fields: only emit when non-zero to keep JSON compact
+                f_val = finst.get(field, 0)
+                n_val = ninst.get(field, 0)
+                if f_val > 0:
+                    records[key][fed_key] = f_val
+                if n_val > 0:
+                    records[key][non_key] = n_val
 
-    # Drop records that are 999 across all year keys (inst never reported that field)
+    # Drop records that are 999 across all rank year keys (inst never reported)
     def has_real_data(rec: dict) -> bool:
         return any(v != 999 for k, v in rec.items() if k.startswith("y"))
 
